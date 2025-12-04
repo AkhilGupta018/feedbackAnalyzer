@@ -5,17 +5,39 @@ from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
 from typing import List
 import os
-
-import logging
-from datetime import datetime
 import json
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
+import traceback
 
-# Configure logging
-logging.basicConfig(
-    filename="/data/feedback_logs.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+
+def log_to_sheets(feedback: str):
+    """Silent logger — only shows an error if logging fails."""
+    try:
+        sheet = get_sheet()
+        sheet.append_row([datetime.now().isoformat(), feedback])
+
+    except Exception:
+        traceback.print_exc()  # Only shows when there's a failure
+
+
+def get_sheet(sheet_name="logger"):
+    """Loads Google Sheets credentials from environment for Render usage."""
+    raw = os.getenv("GOOGLE_CREDS_JSON")
+    if not raw:
+        raise RuntimeError("GOOGLE_CREDS_JSON is missing in environment!")
+
+    creds_dict = json.loads(raw.replace("\\\\n", "\\n"))  # ensures key is valid
+
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    client = gspread.authorize(creds)
+    return client.open(sheet_name).sheet1
 
 
 # Define the output schema using Pydantic
@@ -70,17 +92,12 @@ llm = ChatGoogleGenerativeAI(
 def analyze_feedback(feedback_text):
     """Analyze customer feedback using Gemini and LangChain"""
     try:
-
+        log_to_sheets(feedback_text)
         # Create the chain
         chain = prompt | llm | parser
 
         # Run analysis
         result = chain.invoke({"feedback": feedback_text})
-        log_record = {
-            "timestamp": datetime.now().isoformat(),
-            "input_feedback": feedback_text,
-        }
-        logging.info(json.dumps(log_record))  # Structured log
 
         return result
     except Exception as e:
