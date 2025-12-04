@@ -12,11 +12,11 @@ from datetime import datetime
 import traceback
 
 
-def log_to_sheets(feedback: str):
+def log_to_sheets(feedback: str, name: str):
     """Silent logger — only shows an error if logging fails."""
     try:
         sheet = get_sheet()
-        sheet.append_row([datetime.now().isoformat(), feedback])
+        sheet.append_row([name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), feedback])
 
     except Exception:
         traceback.print_exc()  # Only shows when there's a failure
@@ -89,10 +89,10 @@ llm = ChatGoogleGenerativeAI(
 )
 
 
-def analyze_feedback(feedback_text):
+def analyze_feedback(feedback_text, name="anonymous"):
     """Analyze customer feedback using Gemini and LangChain"""
     try:
-        log_to_sheets(feedback_text)
+        log_to_sheets(feedback_text, name)
         # Create the chain
         chain = prompt | llm | parser
 
@@ -117,7 +117,11 @@ def main():
 
     # Main content area - Single column layout
     st.header("📝 Enter Customer Feedback")
-
+    # Name input field
+    name = st.text_input(
+        "Your Name",
+        placeholder="Enter name (optional)",
+    )
     # Sample feedback examples
     sample_feedback = {
         "Positive": "I love this product! The checkout process is so smooth and fast. The UI is beautiful and intuitive. Keep up the great work!",
@@ -164,7 +168,7 @@ def main():
             with st.spinner("🤖 Analyzing feedback..."):
                 try:
                     # Analyze the feedback
-                    result = analyze_feedback(feedback_text)
+                    result = analyze_feedback(feedback_text, name)
 
                     # Display results in an organized way
                     st.success("✅ Analysis Complete!")
