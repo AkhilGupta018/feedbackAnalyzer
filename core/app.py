@@ -6,6 +6,17 @@ from pydantic import BaseModel, Field
 from typing import List
 import os
 
+import logging
+from datetime import datetime
+import json
+
+# Configure logging
+logging.basicConfig(
+    filename="/data/feedback_logs.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 
 # Define the output schema using Pydantic
 class FeedbackAnalysis(BaseModel):
@@ -65,6 +76,11 @@ def analyze_feedback(feedback_text):
 
         # Run analysis
         result = chain.invoke({"feedback": feedback_text})
+        log_record = {
+            "timestamp": datetime.now().isoformat(),
+            "input_feedback": feedback_text,
+        }
+        logging.info(json.dumps(log_record))  # Structured log
 
         return result
     except Exception as e:
